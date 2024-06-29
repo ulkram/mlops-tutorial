@@ -1,0 +1,29 @@
+
+steps:
+- name: 'gcr.io/cloud-builders/git'
+  args: ['clone', '--single-branch', '--branch',
+         'main','https://github.com/ulkram/mlops-tutorial.git',
+         '--depth', '1',
+         '--verbose']
+  id: 'Clone Repository'
+
+- name: 'python'
+  entrypoint: 'python'
+  args: ['setup.py', 'sdist', '--formats=gztar' ]
+  dir: 'training_package'
+  id: 'Build python application package'
+  waitFor: ['-']
+
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ['cp', 'training_package/dist/trainer-0.1.tar.gz', 'gs://mlu-cicd']
+  waitFor: ['Build python application package']
+  id: 'Upload package to GCS'
+
+- name: 'gcr.io/marklu/mlops-vertex-kfp:latest'
+  args: ['python', 'run_pipeline.py' ]
+  dir: ''
+  id: 'Run Pipeline'
+  waitFor: ['Upload package to GCS']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
